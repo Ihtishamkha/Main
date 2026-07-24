@@ -1,1 +1,100 @@
+# E. coli NGS Data Analysis Workflow
 
+This repository contains a Jupyter notebook (`Ecoli_Analysis.ipynb`) demonstrating a complete Next-Generation Sequencing (NGS) analysis pipeline — from raw read download through quality control, alignment, and variant calling — using publicly available *Escherichia coli* sequencing data from NCBI's Sequence Read Archive (SRA).
+
+## Overview
+
+The notebook walks through a standard bacterial resequencing workflow:
+
+1. Download raw sequencing reads from SRA
+2. Quality control and adapter/quality trimming
+3. Alignment to a reference genome
+4. Post-alignment processing (SAM → sorted, indexed BAM)
+5. Variant calling (SNPs and Indels) and summary statistics
+
+**Sample used:** `SRR2584863` (single-end reads)
+**Reference genome:** *Escherichia coli* B str. REL606 (NCBI accession `GCA_000017985.1_ASM1798v1`)
+
+## Tools Used
+
+| Tool | Purpose |
+|---|---|
+| [SRA Toolkit](https://github.com/ncbi/sra-tools) (`prefetch`, `fastq-dump`) | Download and convert SRA data to FASTQ |
+| [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) | Raw and post-trimming read quality assessment |
+| [fastp](https://github.com/OpenGene/fastp) | Read trimming, quality filtering, adapter removal |
+| [BWA](https://github.com/lh3/bwa) (`bwa mem`) | Alignment of reads to the reference genome |
+| [Samtools](https://www.htslib.org/) | SAM→BAM conversion, sorting, indexing, alignment stats |
+| [BCFtools](https://samtools.github.io/bcftools/) | Variant calling (`mpileup`/`call`) and variant statistics |
+
+All tools are installed via `apt-get`/`apt` within the notebook itself.
+
+## Workflow Steps
+
+### 1. Install Required Tools
+Installs `fastqc` and `sra-toolkit` via `apt-get`.
+
+### 2. Obtain and Prepare Sequencing Data
+- `prefetch SRR2584863` — downloads the SRA accession
+- `fastq-dump SRR2584863` — converts it to `SRR2584863.fastq`
+
+### 3. Quality Control and Trimming
+- `fastqc` run on the raw FASTQ file
+- `fastp` used to trim adapters/low-quality bases → `SRR2584863_trimmed.fastq` (+ HTML report)
+- `fastqc` re-run on the trimmed FASTQ to confirm quality improvement
+
+### 4. Read Alignment to a Reference Genome
+- Installs `bwa` and `samtools`
+- Downloads the *E. coli* reference genome (`GCA_000017985.1_ASM1798v1_genomic.fna.gz`) from NCBI
+- Indexes the reference with `bwa index`
+- Aligns trimmed reads with `bwa mem` → `SRR2584863.sam`
+
+### 5. Post-Alignment Processing
+- Converts SAM → BAM (`samtools view -bS`)
+- Sorts the BAM file (`samtools sort`)
+- Indexes the sorted BAM (`samtools index`)
+- Generates alignment summary statistics (`samtools flagstat`)
+
+### 6. Variant Calling and Analysis
+- Installs `bcftools`
+- Calls variants with `bcftools mpileup | bcftools call -mv` → `variants.vcf`
+- Inspects and counts variants
+- Generates summary statistics with `bcftools stats` → `variant_stats.txt`
+
+## Known Issues in the Notebook
+
+A few cells in the notebook are exploratory/erroneous and are **not part of the working pipeline**:
+- **`cutadapt`** installation and execution cells fail (`ModuleNotFoundError`) — `fastp` already handles trimming, so this step can be skipped.
+- One `bwa mem` cell references a human reference genome (`GRCh38.primary_assembly.genome.fa`) and a different sample (`SRR2079547`) — this is a leftover from an unrelated analysis and does not apply to this *E. coli* workflow.
+- One `bcftools mpileup` cell is a malformed re-run (line-continuation/path issue) — the correctly working version is the one immediately preceding it.
+
+## Requirements
+
+- Unix/Linux environment with `sudo`/`apt-get` access (e.g., Ubuntu)
+- Jupyter Notebook or JupyterLab
+- Internet access (to reach NCBI SRA and genome FTP servers)
+- Recommended: at least 2 CPU cores (checked via `nproc` for `bwa mem -t`)
+
+## Output Files
+
+| File | Description |
+|---|---|
+| `SRR2584863.fastq` | Raw sequencing reads |
+| `SRR2584863_trimmed.fastq` | Quality-trimmed reads |
+| `SRR2584863_trimmed.html` | fastp trimming report |
+| `GCA_000017985.1_ASM1798v1_genomic.fna.gz` | Reference genome (compressed) |
+| `SRR2584863.sam` / `.bam` / `.sorted.bam` / `.sorted.bam.bai` | Alignment files |
+| `variants.vcf` | Called variants (SNPs/Indels) |
+| `variant_stats.txt` | Variant summary statistics |
+
+## Usage
+
+Open `Ecoli_Analysis.ipynb` in Jupyter and run the cells sequentially from top to bottom, skipping the known erroneous cells noted above (cutadapt cells and the human-genome `bwa mem` cell).
+
+```bash
+jupyter notebook Ecoli_Analysis.ipynb
+```
+
+## References
+
+- Reference genome: NCBI Assembly [GCA_000017985.1](https://www.ncbi.nlm.nih.gov/assembly/GCA_000017985.1)
+- Sequencing data: NCBI SRA accession [SRR2584863](https://www.ncbi.nlm.nih.gov/sra/SRR2584863)
